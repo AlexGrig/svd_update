@@ -2,7 +2,18 @@
 """
 Created on Mon Oct 14 16:40:48 2013
 
-@author: agrigori
+@author: Alexander Grigorievskiy
+
+Important references are:
+
+[1] Gu, M. & Eisenstat, S. C. "A Stable and Fast Algorithm for Updating the
+ Singular Value Decomposition", Yale University, 1993
+ 
+[2] Brand, M. "Fast low-rank modifications of the thin singular value
+decomposition", Linear Algebra and its Applications , 2006, 415, 20 - 30
+
+[3] Stange, P. "On the Efficient Update of the Singular Value Decomposition
+Subject to Rank-One Modifications", 2009 
 """
 
 import numpy as np
@@ -10,10 +21,10 @@ import scipy as sp
 import scipy.optimize as opt
 import numpy.random as rnd
 import time
-import timer
+import time
 import scipy.io as io
 
-import matplotlib
+#import matplotlib
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -24,6 +35,24 @@ rounding_ndigits = 14 # number of rounding digits of sigmas. Need to round sigma
 
 epsilon1 = 10**(-rounding_ndigits) # epsilon for detecting zeros
 
+class Timer(object):
+    """
+    Timer context manager. It is used to measure running time during testing.
+    """
+    
+    def __init__(self, verbose=False):
+        self.verbose = verbose
+
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, *args):
+        self.end = time.time()
+        self.secs = self.end - self.start
+        self.msecs = self.secs * 1000  # millisecs
+        if self.verbose:
+            print 'elapsed time: %f ms' % self.msecs
 
 def extend_matrix_by_one(M):
     """
@@ -37,8 +66,26 @@ def extend_matrix_by_one(M):
     return M
     
 class SVD_updater(object):
+    """
+    This class is intended to perform sequential SVD update. So, it should
+    be used if we want to sequentially update SVD attaching many columns sequentially.
     
-    def __init__(self, U,S,Vh, update_V = False, reorth_step=10):
+    If we need to update SVD (by extra column) only once function update_SVD should be used.
+    """
+
+    def __init__(self, U,S,Vh, update_V = False, reorth_step=100):
+        """
+        Class constructor.
+
+        Input:
+            U,S,Vh - current SVD
+            update_V - whether or not update matrix V
+            reorth_step - how often to perform orthogonalization step
+            
+        Output:
+            None
+        """
+        
         self.outer_U = U
         self.outer_Vh = Vh
         
@@ -59,6 +106,16 @@ class SVD_updater(object):
                               #This counter is needed to decide when perform an orthogonalization
         
     def add_column(self, new_col):
+        """
+        Add column to the current SVD.
+        
+        Input:
+            new_col - one or two dimensional vector ( if two dimensional one it must have the shape (len,1) )
+            
+        Output:
+            None
+        """        
+        
         #self.zero_epsilon = np.sqrt( np.finfo(np.float64).eps * self.m**2 * self.n * np.max( new_col)*2) # epsilon to determine when rank not increases
         self.zero_epsilon = np.sqrt( np.finfo(np.float64).eps * self.m**2 * self.n * 10*2) # epsilon to determine when rank not increases
         
@@ -188,7 +245,10 @@ class SVD_updater(object):
     def get_current_svd(self):
         """
         Function computes the currrent SVD, returns the result
-        and updates outer matrices by multipying by inner.
+        and updates outer matrices by multipying by inner matrices.
+        
+        Output:
+            U, S, Vh - SVD. Vh is none if it is not updated.
         """        
         
         if not self.inner_U is None:
@@ -210,8 +270,12 @@ class SVD_updater(object):
         
     def _reorthogonalize(self):
         """
+        Uses orthogonalization method mentioned in:            
+        Brand, M. "Fast low-rank modifications of the thin singular value
+        decomposition Linear Algebra and its Applications" , 2006, 415, 20 - 30.
         
-        
+        Actually the usefulness of this method is not wel justified. But it is 
+        implemeted here. This function is called from "add_column" method.
         """
 
         if not self.inner_U is None:
@@ -244,7 +308,10 @@ class SVD_updater(object):
     
     def reorth_was_pereviously(self):
         """
-        Functions returns the boolean value whether reorthogonalization has just been performed
+        Function for external testing.
+        
+        Functions returns the boolean value which tells 
+        whether reorthogonalization has performed on the previous step.
         """
     
         return (self.reorth_count == 0)    
@@ -253,7 +320,7 @@ class SVD_updater(object):
     
 def test_SVD_updater():
     """
-    Test class SVD_updater
+    Testinf function for SVD_updater class.
     """
     
 #    # Test column update. Thin matrix, rank increases 
@@ -341,19 +408,22 @@ def test_SVD_updater():
     # test function SVD update
 
     A = rnd.rand(5,3)
-    (U,S,Vh) = sp.linalg.svd( A , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
+    (U,S,Vh) = sp.linalg.svd( A , full_matrices=False, compute_uv=True,
+                             overwrite_a=False, check_finite=False )
         
     #a1 = rnd.rand(5,1)
     a1 = np.dot(A, np.array([2,1,4],ndmin=2 ).T ) 
     A = np.hstack( (A,a1) )
-    (Ut,St,Vht) = sp.linalg.svd( A  , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
+    (Ut,St,Vht) = sp.linalg.svd( A  , full_matrices=False, compute_uv=True,
+                                      overwrite_a=False, check_finite=False )
 
     (Us1, Ss1, Vhs1) = update_SVD( U, S, Vh, a1, a_col_col=True)
     Ar1 = np.dot( Us1, np.dot(np.diag(Ss1), Vhs1 ) )
 
     diff1 = np.max( np.abs( A - Ar1) )/St[0]
 
-    (U,S,Vh) = sp.linalg.svd( A , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
+    (U,S,Vh) = sp.linalg.svd( A , full_matrices=False, compute_uv=True,
+                                  overwrite_a=False, check_finite=False )
     
     #a2 = np.array([2,1,4,7],ndmin=2 )
     a2 = np.array([0,0,0,0],ndmin=2 )
@@ -366,7 +436,8 @@ def test_SVD_updater():
 
     return diff1
 
-def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace, reorth_step):
+def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace,
+                           reorth_step):
     """
     Test how the orthogonality property changes of updated SVD.    
     
@@ -404,17 +475,17 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace, r
             same_sub = False
         A = np.hstack( (A,a1) )
         
-        with timer.Timer() as t:
+        with Timer() as t:
             svd_upd.add_column(a1)
         times[ii,0] = t.msecs
         
-        with timer.Timer() as t:
+        with Timer() as t:
             (Ut, St, Vht) = svd_upd.get_current_svd()
             
         times[ii,1] = t.msecs
         times[ii,2] = times[ii,0] + times[ii,1]
         
-        with timer.Timer() as t:
+        with Timer() as t:
             (Us,Ss,Vhs) = sp.linalg.svd( A , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
         times[ii,3] = t.msecs
         
@@ -454,8 +525,10 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace, r
     plt.figure(1)
     plt.plot( t1[:,4], t2[:,2]/1000.0, 'rs-', label='SVD update')
     plt.plot( t1[:,4], t2[:,3]/1000.0, 'bo-', label='New SVD')
-    plt.plot( t1[:,4], t2[:,0]/1000.0, 'm--', label='SVD update: except final matrix multiplication')
-    plt.plot( t1[:,4], t2[:,1]/1000.0, 'y-.', label='SVD update: only final matrix multiplication')
+    plt.plot( t1[:,4], t2[:,0]/1000.0, 'm--', 
+              label='SVD update: except final matrix multiplication')
+    plt.plot( t1[:,4], t2[:,1]/1000.0, 'y-.',
+              label='SVD update: only final matrix multiplication')
     plt.legend(loc=2,prop={'size':16})    
     plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
     plt.suptitle('Comp. time of sequential SVD update, its components and new SVD', fontsize=20)
@@ -470,7 +543,8 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace, r
     plt.rc('ytick', labelsize=18)  
     plt.figure(2)
     plt.plot( t1[:,4], t1[:,0], 'bo-')
-    plt.suptitle('Squential SVD. Maximum relative singular value differences', fontsize=20)
+    plt.suptitle('Squential SVD. Maximum relative singular value differences',
+                 fontsize=20)
     plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
     plt.ylabel('Difference', fontsize = 18 )
     plt.xlabel('Number of columns', fontsize = 18 )    
@@ -481,13 +555,16 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace, r
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)  
     plt.figure(3)
-    plt.plot( t1[:,4], t1[:,4], 'bo-', label='Total number of singular values')
-    plt.plot( t1[:,4], t1[:,1], 'rs-', label='Index of maximum difference singular value')
+    plt.plot(t1[:,4], t1[:,4], 'bo-', 
+              label='Total number of singular values')
+    plt.plot(t1[:,4], t1[:,1], 'rs-',
+              label='Index of maximum difference singular value')
     plt.legend(loc=2, prop={'size':16})
-    plt.suptitle( 'Squential SVD. Index of maximum difference singular value', fontsize = 20 )
-    plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
+    plt.suptitle('Squential SVD. Index of maximum difference singular value',
+                  fontsize = 20 )
+    plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17)
     plt.ylabel('Index', fontsize = 18 )
-    plt.xlabel('Number of columns', fontsize = 18 )   
+    plt.xlabel('Number of columns', fontsize = 18)   
     plt.show()
     
     return (svd_comp,times)
@@ -496,23 +573,29 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace, r
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)  
     plt.figure(3)
-    plt.plot( xx, [14.69, 15.83, 23.94, 32.87], 'bo-', linewidth=3, ms=10, label='OP-ELM')
-    plt.plot( xx, [12.67, 10.09, 14.77, 14.53], 'rs-', linewidth=3, ms=10, label='Inc (OP)-ELM')
+    plt.plot( xx, [14.69, 15.83, 23.94, 32.87], 'bo-', linewidth=3, ms=10,
+              label='OP-ELM')
+    plt.plot( xx, [12.67, 10.09, 14.77, 14.53], 'rs-', linewidth=3, ms=10,
+              label='Inc (OP)-ELM')
     plt.legend(loc=2,prop={'size':18})
-    plt.suptitle( 'Running Time with Respect to Number of Samples', fontsize = 20 )
+    plt.suptitle('Running Time with Respect to Number of Samples',
+                  fontsize = 20)
     #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
-    plt.ylabel('Seconds', fontsize = 18 )
-    plt.xlabel('Number of Samples', fontsize = 18 )   
+    plt.ylabel('Seconds', fontsize = 18)
+    plt.xlabel('Number of Samples', fontsize = 18)   
     plt.show()
     
     xx = [100,300,600]
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)  
     plt.figure(3)
-    plt.plot( xx, [1.64, 15.83, 65.41], 'bo-', linewidth=3, ms=10, label='OP-ELM')
-    plt.plot( xx, [1.33, 10.09, 38.96], 'rs-', linewidth=3, ms=10, label='Inc (OP)-ELM')
+    plt.plot(xx, [1.64, 15.83, 65.41], 'bo-', linewidth=3, ms=10,
+             label='OP-ELM')
+    plt.plot(xx, [1.33, 10.09, 38.96], 'rs-', linewidth=3, ms=10,
+             label='Inc (OP)-ELM')
     plt.legend(loc=2,prop={'size':18})
-    plt.suptitle( 'Running Time with Respect to Initial Number of Neurons', fontsize = 20 )
+    plt.suptitle('Running Time with Respect to Initial Number of Neurons',
+                 fontsize = 20 )
     #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
     plt.ylabel('Seconds', fontsize = 18 )
     plt.xlabel('Initial Number of Neurons', fontsize = 18 )   
@@ -605,12 +688,12 @@ def find_roots(sigmas, m_vec, method=1):
                 Must be (m*1)
         method - which method to use to find roots
     
-    There are two ways to find roots for secular equation of augmented s.v. matrix.
-    One way is to use again SVD decomposition and the second method is to find roots
-    of algebraic function on a certain interval.
-    
+    There are two ways to find roots for secular equation of augmented s.v.
+    matrix. One way is to use again SVD decomposition and the second method
+    is to find roots of algebraic function on a certain interval.
+    Currently method 2 is used by using imported lapack function.
     """
-    
+
     #sigmas = np.diag(Sigma) # now singular values are from largest to smallest
     
     if method == 1: # using interlacing properties find zeros on the intervals
@@ -645,7 +728,7 @@ def find_roots(sigmas, m_vec, method=1):
         
     if method == 2: # Imported lapack function
         it_len = len(sigmas)
-        sgm = np.concatenate( ( sigmas[::-1], ( sigmas[0] + it_len*np.sqrt(np.sum( np.power(m_vec,2) )) ,) ) )
+        sgm = np.concatenate( ( sigmas[::-1], (sigmas[0] + it_len*np.sqrt(np.sum( np.power(m_vec,2) )) ,) ) )
         mvc = np.concatenate( ( m_vec[::-1],    (0,) ) )
         roots = []
         
@@ -715,19 +798,23 @@ def _SVD_upd_diag_equal_sigmas( sigmas, m_vec , new_col):
     the appropriate unitary transformation which separates unique and equal
     sigmas. This is needed because the method in _SVD_upd_diag works only for
     unique sigmas. It also detects zeros in the m_vec and performs appropriate
-    permutation if these zeros are found. When new column is added the original matrix is square
-    and it is mandatory that sigma[-1] = 0 and m_vec[-1] != 0. When new row is added original matrix is not square
+    permutation if these zeros are found. When new column is added the 
+    original matrix is square and it is mandatory that sigma[-1] = 0 and
+    m_vec[-1] != 0. When new row is added original matrix is not square
     and sigmas are arbitary.
     
     Inputs:
         sigmas - singular values of a square matrix
-        m_vec - extra column added to the square diagonal matrix of singular vectors.
+        m_vec - extra column added to the square diagonal matrix of singular
+                vectors.
         new_col - says which task is task is solved. True if originally the 
                   problem of new column is solved, False if new row is added.
     Output:
-        is_equal_sigmas - boolean which is True if there are equal sigmas, False otherwise.
+        is_equal_sigmas - boolean which is True if there are equal sigmas,
+                          False otherwise.
         uniq_length - quantity of unique sigmas.
-        U - unitary transformation which transform the original matrix (S + mm*) into the form 
+        U - unitary transformation which transform the 
+            original matrix (S + mm*) into the form 
             where equal sigmas are at the end of the diagonal of the new matrix.
     """
     
@@ -884,12 +971,12 @@ def _arrays_merge(a1, a2, decreasing=True , func=None):
         a1 - first array
         a2 - second array
         decreasing - a1 and a2 are sorted in decreasing order as well as new array 
-        func - function which is used to extract numerical value from the elemets of arrays.
-               if it is None than indexing is used.
+        func - function which is used to extract numerical value from the 
+               elemets of arrays. If it is None than indexing is used.
         
     Output:
-        perm - permutation of indices. Indices of the second array starts from the length
-                of the first array ( len(a1) )
+        perm - permutation of indices. Indices of the second array starts 
+               from the length of the first array ( len(a1) )
         str -  sorted array
     """
     
@@ -945,25 +1032,30 @@ def _arrays_merge(a1, a2, decreasing=True , func=None):
 
 def _SVD_upd_diag( sigmas, m_vec, new_col=True):
     """
-    This is internal function which is called by update_SVD and SVD_update class. It returns the SVD of
-    diagonal matrix augmented by one column. There are two ways to compose augmented matrix. One way is when
-    sigma[-1] = 0 and m_vec[-1] != 0 and column m_vec substitutes zero column in diagonal matrix np.diag(sigmas).
-    The resulted matrix is square. This case is needed when the rank of the original matrix A increased by 1.
+    This is internal function which is called by update_SVD and SVD_update
+    class. It returns the SVD of diagonal matrix augmented by one column. 
+    There are two ways to compose augmented matrix. One way is when
+    sigma[-1] = 0 and m_vec[-1] != 0 and column m_vec substitutes zero column
+    in diagonal matrix np.diag(sigmas). The resulted matrix is square. This
+    case is needed when the rank of the original matrix A increased by 1.
     Parameter for this case is new_col=True.    
-    The second case is when column m_vec is added to np.diag(sigmas). There are no restrictions on value of 
-    sigmas and m_vec. This case is used when the rank of the of the original matrix A is not increased.
+    The second case is when column m_vec is added to np.diag(sigmas). There
+    are no restrictions on value of sigmas and m_vec. This case is used when
+    the rank of the of the original matrix A is not increased.
     Parameter for this case is new_col=False.    
 
     Inputs:
         sigmas - SORTED singular values of a square matrix
-        m_vec - extra column added to the square diagonal matrix of singular vectors.
-        new_col - says which task is task is solved. See comments to the function. 
-                  True if originally the problem of new column is solved, False if new row is added.
+        m_vec - extra column added to the square diagonal matrix of singular
+                vectors.
+        new_col - says which task is task is solved. See comments to the
+                  function. True if originally the problem of new column is
+                  solved, False if new row is added.
     Outputs:
         U, sigmas, V - SVD of the diagonal matrix plus one column.
         
-        !!! Note that unlike update_SVD and scipy SVD routines V not V transpose
-        is returned.
+        !!! Note that unlike update_SVD and scipy SVD routines V 
+        not V transpose is returned.
     """
     
     orig_sigmas_length = sigmas.shape[0]
@@ -1024,15 +1116,6 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
                 else:
                     pass
                
-               # Old code
-#                tmp1[i] = 0
-#                tmp1[i] = (-1 - np.dot( tmp1, m_vec)) / m_vec[i]
-#                if len(np.nonzero( np.isinf(tmp1) )[0] ) > 0: # temporary check
-#                    pass
-                
-                #assert len(np.nonzero( np.isinf(tmp1) )[0] ) == 0, " This case is not expected"
-               
-           
         if np.any( np.isnan(tmp1) ): # temporary check
             pass
         
@@ -1084,11 +1167,13 @@ def update_SVD( U, S, Vh, a_col, a_col_col=True):
     """
     This is the function which updates SVD decomposition by one column.
     In real situation SVD_updater class is more preferable to use, because
-    it is intended for continuous updating and provides some additional features.
+    it is intended for continuous updating and provides some additional 
+    features.
     
-    Function which updates SVD decomposition of A, when new column a_col is added 
-    to the matrix. Actually a_col can be a new row as well. The only requirement
-    is that if A has size (m*n) then m >= n. Otherwise, error is raised.
+    Function which updates SVD decomposition of A, when new column a_col is 
+    added to the matrix. Actually a_col can be a new row as well. The only
+    requirement is that if A has size (m*n) then m >= n. Otherwise, error 
+    is raised.
     
     Inputs:
         U,S,Vh - thin SVD of A, which is obtained e.g from scipy.linalg.svd
@@ -1209,15 +1294,15 @@ def test_root_finder():
         
         sigmas.sort()
         sigmas = sigmas[::-1]
-        with timer.Timer() as t:
+        with Timer() as t:
             roots1 = find_roots(sigmas, m_vec, method=1)
         times_root_1.append(t.msecs) # roots by root finder        
        
-        with timer.Timer() as t:
+        with Timer() as t:
             roots2 = find_roots(sigmas, m_vec, method=2)
         times_root_2.append(t.msecs) # roots by root finder          
         
-        with timer.Timer() as t:
+        with Timer() as t:
             roots3 = find_roots(sigmas, m_vec, method=3)
         times_root_3.append(t.msecs) # roots by root finder  
         
@@ -1312,12 +1397,12 @@ def test_update_svd(n_rows,start_n_col, n_max_cols, step_n_col):
         
         (um,sm,vm) = sp.linalg.svd(matrix, full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False)
 
-        with timer.Timer() as t:
+        with Timer() as t:
             (uu,su,vu) = update_SVD( um, sm, vm, new_col, a_col_col=True)       
         update_time.append(t.msecs/1000.0)
     
         
-        with timer.Timer() as t:
+        with Timer() as t:
             (uf,sf,vf) = sp.linalg.svd( np.hstack( (matrix,new_col[:,np.newaxis] )) , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False)      
         new_svd_time.append(t.msecs/1000.0)
 
@@ -1516,7 +1601,7 @@ def test_SVD_comp_complexity(n_rows,start_n_col, n_max_cols, step_n_col):
         A = np.hstack( (A,a1) )
         B = A.T        
         
-        with timer.Timer() as t:
+        with Timer() as t:
             (Us,Ss,Vhs) = sp.linalg.svd( B , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
             
         times[iter_counter,0] = A.shape[1]
@@ -1556,7 +1641,3 @@ if __name__ == '__main__':
     #sigmas = np.array( [30000, 0.5, 0])
     #m_vec = np.array( [0.001, -100, 10000])
     #test_update_diag(sigmas,m_vec)
-    
-    
-    
-    
