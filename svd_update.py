@@ -1226,6 +1226,12 @@ def update_SVD( U, S, Vh, a_col, a_col_col=True):
                                     # rank is not increased.
             U1, new_sigmas, V1 = _SVD_upd_diag( S, m_vec, new_col=False)
             
+            # This block adds zero to singular value and modify matrices 
+            # accordingly. It can be removed if needed -> 
+            new_sigmas = np.concatenate( ( new_sigmas, (0.0,) ) )
+            U1 = np.hstack( (U1, np.zeros((U1.shape[0] ,1) ) ))
+            V1 = np.hstack( ( V1, np.zeros((V1.shape[0],1) ) )  )
+            # <-
         else: 
             U = np.hstack( (U, new_u[:,np.newaxis] / mu) )  
             
