@@ -449,6 +449,8 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace,
         reorth_step - how often to do reorthogonalization.
     """
     import numpy.random as rnd
+    
+    test_update_SVD_function = True
     #n_rows = 1000   
     #n_max_cols = 1000
     
@@ -459,9 +461,13 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace,
     (U,S,Vh) = sp.linalg.svd( A , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
     
     svd_upd = SVD_updater( U,S,Vh, update_V = True, reorth_step=reorth_step)
-   
-    svd_comp = np.empty((n_max_cols, 9))
-    times = np.empty((n_max_cols, 4))    
+    
+    if test_update_SVD_function:
+        svd_comp = np.empty((n_max_cols, 10))
+        times = np.empty((n_max_cols, 5)) 
+    else:
+        svd_comp = np.empty((n_max_cols, 9))
+        times = np.empty((n_max_cols, 4))    
     
     same_sub = False
     for ii in xrange( 0,n_max_cols ):
@@ -489,6 +495,11 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace,
             (Us,Ss,Vhs) = sp.linalg.svd( A , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
         times[ii,3] = t.msecs
         
+        if test_update_SVD_function:
+            with Timer() as t:
+                (U, S, Vh) = update_SVD( U, S, Vh, a1, a_col_col=True)
+            times[ii,4] = t.msecs         
+        
         tmp = np.abs( Ss[0:St.shape[0]] - St ) / Ss[ 0:St.shape[0] ]
         t1 = np.max( tmp )
         t_pos = np.nonzero( tmp == t1 )[0][0]
@@ -504,7 +515,12 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace,
         svd_comp[ii,6] =  np.max( np.abs( Ar1 - A ) )
         svd_comp[ii,7] =  np.max( np.abs(np.dot( Ut.T, Ut ) - np.eye( Ut.shape[1]) ) )    
         svd_comp[ii,8] = np.max( np.abs(np.dot( Vht, Vht.T ) - np.eye( Vht.shape[0]) ) )
-    
+        if test_update_SVD_function:
+            try:
+                tmp = np.abs( Ss[0:S.shape[0]] - S ) / Ss[ 0:S.shape[0] ] 
+            except ValueError as e:
+                raise e
+            svd_comp[ii,9] = np.max( tmp )
         print ii
         
 #    (U,S,Vh) = sp.linalg.svd( A , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
@@ -517,85 +533,85 @@ def test_SVD_update_reorth(n_rows,start_n_col, n_max_cols, prob_same_subspace,
     result['times'] = times
     result['n_rows'] = n_rows
    
-    io.savemat('inc_svd_update_6.mat', result )
+    io.savemat('inc_svd_update_7.mat', result )
     
     # Plot
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)         
     plt.figure(1)
+    plt.plot( t1[:,4], t2[:,3]/1000.0, 'ko-', label='New SVD')
     plt.plot( t1[:,4], t2[:,2]/1000.0, 'rs-', label='SVD update')
-    plt.plot( t1[:,4], t2[:,3]/1000.0, 'bo-', label='New SVD')
     plt.plot( t1[:,4], t2[:,0]/1000.0, 'm--', 
-              label='SVD update: except final matrix multiplication')
+              label='SVD update: except matrix mult.')
     plt.plot( t1[:,4], t2[:,1]/1000.0, 'y-.',
-              label='SVD update: only final matrix multiplication')
+              label='SVD update: matrix mult.')
     plt.legend(loc=2,prop={'size':16})    
-    plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
-    plt.suptitle('Comp. time of sequential SVD update, its components and new SVD', fontsize=20)
+    #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
+    #plt.suptitle('Comp. time of sequential SVD update, its components and new SVD', fontsize=20)
     plt.xlabel( 'Number of columns' , fontsize = 17 )
     plt.ylabel( 'Seconds' , fontsize = 17 )    
     plt.show()
     #plt.savefig('Seq_SVD_update_2.png')
-    
-    plt.close()
-    
+#    
+#    plt.close()
+#    
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)  
     plt.figure(2)
-    plt.plot( t1[:,4], t1[:,0], 'bo-')
-    plt.suptitle('Squential SVD. Maximum relative singular value differences',
-                 fontsize=20)
-    plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
+    plt.plot( t1[:,4], t1[:,0], 'ko-')
+    #plt.suptitle('Squential SVD. Maximum relative singular value differences',
+    #             fontsize=20)
+    #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
     plt.ylabel('Difference', fontsize = 18 )
     plt.xlabel('Number of columns', fontsize = 18 )    
     #plt.savefig('Seq_SVD_sing_val_diff_2.png')    
     plt.show()
     #plt.close()   
-    
+#    
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)  
     plt.figure(3)
-    plt.plot(t1[:,4], t1[:,4], 'bo-', 
+    plt.plot(t1[:,4], t1[:,4], 'ko-', 
               label='Total number of singular values')
     plt.plot(t1[:,4], t1[:,1], 'rs-',
               label='Index of maximum difference singular value')
     plt.legend(loc=2, prop={'size':16})
-    plt.suptitle('Squential SVD. Index of maximum difference singular value',
-                  fontsize = 20 )
-    plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17)
+    #plt.suptitle('Squential SVD. Index of maximum difference singular value',
+    #              fontsize = 20 )
+    #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17)
     plt.ylabel('Index', fontsize = 18 )
     plt.xlabel('Number of columns', fontsize = 18)   
     plt.show()
-    
-    return (svd_comp,times)
-    
+#    
+#    return (svd_comp,times)
+#    
     xx = [2784, 2999, 4752, 6344]
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)  
     plt.figure(3)
-    plt.plot( xx, [14.69, 15.83, 23.94, 32.87], 'bo-', linewidth=3, ms=10,
+    plt.plot( xx, [14.69, 15.83, 23.94, 32.87], 'ko-', linewidth=3, ms=10,
               label='OP-ELM')
     plt.plot( xx, [12.67, 10.09, 14.77, 14.53], 'rs-', linewidth=3, ms=10,
-              label='Inc (OP)-ELM')
+              label='(Inc)-OP-ELM')
     plt.legend(loc=2,prop={'size':18})
-    plt.suptitle('Running Time with Respect to Number of Samples',
-                  fontsize = 20)
+    #plt.suptitle('Running Time with Respect to Number of Samples',
+    #              fontsize = 20)
     #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
     plt.ylabel('Seconds', fontsize = 18)
     plt.xlabel('Number of Samples', fontsize = 18)   
     plt.show()
-    
+#    
     xx = [100,300,600]
     plt.rc('xtick', labelsize=18) 
     plt.rc('ytick', labelsize=18)  
     plt.figure(3)
-    plt.plot(xx, [1.64, 15.83, 65.41], 'bo-', linewidth=3, ms=10,
+    plt.plot(xx, [1.64, 15.83, 65.41], 'ko-', linewidth=3, ms=10,
              label='OP-ELM')
     plt.plot(xx, [1.33, 10.09, 38.96], 'rs-', linewidth=3, ms=10,
-             label='Inc (OP)-ELM')
+             label='(Inc)-OP-ELM')
     plt.legend(loc=2,prop={'size':18})
-    plt.suptitle('Running Time with Respect to Initial Number of Neurons',
-                 fontsize = 20 )
+    #plt.suptitle('Running Time with Respect to Initial Number of Neurons',
+    #             fontsize = 20 )
     #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
     plt.ylabel('Seconds', fontsize = 18 )
     plt.xlabel('Initial Number of Neurons', fontsize = 18 )   
@@ -1439,16 +1455,37 @@ def test_update_svd(n_rows,start_n_col, n_max_cols, step_n_col):
     
     io.savemat('svd_update.mat', result )   
         
-    # Plot        
-    plt.figure(1)
-    plt.plot( column_sizes, update_time ,'rs-', label='SVD update')
-    plt.plot( column_sizes, new_svd_time ,'bo-', label='New SVD')
-    plt.legend(loc=2)    
-    plt.title('Computational time for SVD update and new SVD.\n Number of matrix rows is %i ' % n_rows )    
-    plt.xlabel( 'Number of columns' )
-    plt.ylabel('Seconds')    
+    # Plot 
+    n_rows = 10000 #10000,500, 6000, 500
+    column_sizes = range(500,6001,500)
     
-    plt.savefig('SVD_update_time.png')
+    plt.rc('xtick', labelsize=18) 
+    plt.rc('ytick', labelsize=18)
+    plt.figure(1)
+    plt.plot( column_sizes, new_svd_time ,'ko-', label='New SVD')
+    plt.plot( column_sizes, update_time ,'rs-', label='SVD update')
+    plt.legend(loc=2)    
+    #plt.title('Computational time for SVD update and new SVD.\n Number of matrix rows is %i ' % n_rows )    
+    plt.xlabel( 'Number of columns', fontsize = 17)
+    plt.ylabel('Seconds', fontsize = 17)    
+    plt.show()
+    
+         
+    plt.figure(1)
+    plt.plot( t1[:,4], t2[:,3]/1000.0, 'ko-', label='New SVD')
+    plt.plot( t1[:,4], t2[:,2]/1000.0, 'rs-', label='SVD update')
+    plt.plot( t1[:,4], t2[:,0]/1000.0, 'm--', 
+              label='SVD update: except matrix mult.')
+    plt.plot( t1[:,4], t2[:,1]/1000.0, 'y-.',
+              label='SVD update: matrix mult.')
+    plt.legend(loc=2,prop={'size':16})    
+    #plt.title('Number of matrix rows is %i ' % n_rows, fontsize = 17 )
+    #plt.suptitle('Comp. time of sequential SVD update, its components and new SVD', fontsize=20)
+    plt.xlabel( 'Number of columns' , fontsize = 17 )
+    plt.ylabel( 'Seconds' , fontsize = 17 )    
+    plt.show()
+    
+    #plt.savefig('SVD_update_time.png')
     
     plt.close()
     plt.figure(2)
@@ -1634,7 +1671,7 @@ if __name__ == '__main__':
     #test_SVD_updater()
 
 
-    res = test_SVD_update_reorth(1000,1000, 1500, 0, 50) # (n_rows,start_n_col, n_max_cols, prob_same_subspace, reorth_step)
+    res = test_SVD_update_reorth(1000,10, 990, 0.05, 2000) # (n_rows,start_n_col, n_max_cols, prob_same_subspace, reorth_step)
     
     #res = test_SVD_comp_complexity(10000,10, 13000, 500)
     
