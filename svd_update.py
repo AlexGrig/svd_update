@@ -59,8 +59,8 @@ def extend_matrix_by_one(M):
     Column and row consist of zeros except the one on the diagonal.
     """
 
-    M = np.hstack( (M, np.zeros((M.shape[0],1 ) ) ) )
-    M = np.vstack( (M, np.array( (0.0,)*(M.shape[1]-1) + (1.0,), ndmin=2 ) ) )
+    M = np.hstack((M, np.zeros((M.shape[0],1))))
+    M = np.vstack((M, np.array((0.0,)*(M.shape[1]-1) + (1.0,), ndmin=2 )))
 
     return M
 
@@ -289,7 +289,7 @@ class SVD_updater(object):
 
         if not self.inner_U is None:
             US = np.dot( self.inner_U, np.diag(self.S) )
-            (Utmp,Stmp,Vhtmp) = sp.linalg.svd( US  , full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False )
+            (Utmp,Stmp,Vhtmp) = sp.linalg.svd(US, full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False)
 
             self.inner_U = Utmp
             self.S = Stmp
@@ -325,10 +325,6 @@ class SVD_updater(object):
 
         return (self.reorth_count == 0)
 
-
-
-
-
 func_calls = []
 it_count = []
 #@profile
@@ -361,17 +357,17 @@ def one_root(func, a_i, b_i, ii,sigmas,m_vec):
     b_new = b_i - tmp
 
     # a_i * eps  - absolute error
-    a_max_it = np.ceil( np.log10( tmp / (a_i * eps) ) ) + 2
-    b_max_it = np.ceil( np.log10( tmp / (b_i * eps) ) ) + 2
+    a_max_it = np.ceil(np.log10(tmp / (a_i * eps))) + 2
+    b_max_it = np.ceil(np.log10(tmp / (b_i * eps))) + 2
 
-    if np.isnan( a_max_it ) or a_max_it > 20:
+    if np.isnan(a_max_it) or a_max_it > 20:
         a_max_it = 17
 
-    if np.isnan( b_max_it ) or b_max_it > 20:
+    if np.isnan(b_max_it) or b_max_it > 20:
         b_max_it = 17
 
     a_found = False; b_found = False; it = 0
-    while not ( a_found and b_found ):
+    while not (a_found and b_found):
         shift /= 10
         if not a_found:
             if func(a_new) >= 0:
@@ -392,12 +388,12 @@ def one_root(func, a_i, b_i, ii,sigmas,m_vec):
                 b_found = True
         it += 1
 
-    res = opt.brentq( func, a_new, b_new, full_output=True, disp=False)
+    res = opt.brentq(func, a_new, b_new, full_output=True, disp=False)
     if res[1].converged == False:
-        pass
+        raise ValueError("Root is not found")
 
-    func_calls.append( res[1].function_calls )
-    it_count.append( it)
+    func_calls.append(res[1].function_calls)
+    it_count.append(it)
     return res[0]
 #    x0 = 0.5*(b_i - a_i)
 #
@@ -427,7 +423,7 @@ def find_roots(sigmas, m_vec, method=1):
         m_vec2 = np.power(m_vec,2)
         sig2 = np.power(sigmas,2)
         #func = lambda l: 1 + np.sum( m_vec2 / ( ( sigmas + l) * (sigmas - l) ) )
-        func = lambda l: 1 + np.sum( m_vec2 / ( sig2 - l**2 ) )
+        func = lambda l: 1 + np.sum(m_vec2 / (sig2 - l**2 ))
         #func_der1 = lambda l: 2l*sum( m_vec2 / np.power(( sigmas + l) * (sigmas - l),2 ) )
         #func_der2 = lambda l: 2*sum( m_vec2 / np.power(( sigmas + l) * (sigmas - l),2 ) ) + 8*l*l*sum( m_vec2 / np.power(( sigmas + l) * (sigmas - l),3 ) )
 
@@ -455,8 +451,8 @@ def find_roots(sigmas, m_vec, method=1):
 
     if method == 2: # Imported lapack function
         it_len = len(sigmas)
-        sgm = np.concatenate( ( sigmas[::-1], (sigmas[0] + it_len*np.sqrt(np.sum( np.power(m_vec,2) )) ,) ) )
-        mvc = np.concatenate( ( m_vec[::-1],    (0,) ) )
+        sgm = np.concatenate((sigmas[::-1], (sigmas[0] + it_len*np.sqrt(np.sum( np.power(m_vec,2))),)))
+        mvc = np.concatenate((m_vec[::-1], (0,)))
         roots = []
 
         if (sigmas[-1] < epsilon1) and (sigmas[-2] < epsilon1): # two zeros at the end
@@ -468,17 +464,17 @@ def find_roots(sigmas, m_vec, method=1):
 
         #sigmas_minus_i = [] # ( sigmas - new_sigmas[i] ) needed for singular vector construction
         #sigmas_plus_i = []  # ( sigmas + new_sigmas[i] ) needed for singular vector construction
-        for i in xrange(it_start, it_len ): # find all singular except the last
-            res = sp.linalg.lapack.dlasd4(i, sgm, mvc )
-         #   sigmas_minus_i.append( res[0][0:-1] )
-            roots.append( res[1] )
-         #   sigmas_plus_i.append( res[2][0:-1] )
+        for i in xrange(it_start, it_len): # find all singular except the last
+            res = sp.linalg.lapack.dlasd4(i, sgm, mvc)
+         #  sigmas_minus_i.append( res[0][0:-1] )
+            roots.append(res[1])
+         #  sigmas_plus_i.append( res[2][0:-1] )
 
         # find last singular value ->
         max_iter_last = 10; iter_no = 0
         exit_crit = False
         while not exit_crit:
-            res = sp.linalg.lapack.dlasd4( it_len, sgm, mvc )
+            res = sp.linalg.lapack.dlasd4(it_len, sgm, mvc)
 
             if (res[3] == 0) or (iter_no >= max_iter_last):
                 exit_crit = True
@@ -486,12 +482,12 @@ def find_roots(sigmas, m_vec, method=1):
                 sgm[-1] = 10 * sgm[-1]
                 iter_no += 1
 
-        if  (res[3] > 0) or np.any( np.isnan(roots) ):
-            pass
+        if  (res[3] > 0) or np.any(np.isnan(roots)):
+            raise ValueError("LAPACK root finding dlasd4 failed to fine the last singular value")
         else:
             if iter_no > 1:
                 print "Iters:  ", iter_no
-            roots.append( res[1] ) # append the last singular value
+            roots.append(res[1]) # append the last singular value
         # find last singular value <-
 
         if prepend_zero:
@@ -500,14 +496,14 @@ def find_roots(sigmas, m_vec, method=1):
         return np.array(roots[::-1])
 
     if method == 3: # by eigh call
-        M = np.diag( np.power( sigmas, 2) )  + np.dot( m_vec[:, np.newaxis],  m_vec[np.newaxis, : ] )
+        M = np.diag(np.power(sigmas, 2)) + np.dot(m_vec[:, np.newaxis], m_vec[np.newaxis,:])
         #sm = sp.linalg.svd(M, full_matrices=False, compute_uv=False, overwrite_a=True, check_finite=False)
 
         sm = sp.linalg.eigh(M, eigvals_only=True, overwrite_a=True, check_finite=False)
         sm = sm[::-1]
         del M
 
-        return np.sqrt( sm )
+        return np.sqrt(sm)
 
     if method == 4: # by svd call
         M = np.diag( np.power( sigmas, 2) )  + np.dot( m_vec[:, np.newaxis],  m_vec[np.newaxis, : ] )
@@ -516,7 +512,7 @@ def find_roots(sigmas, m_vec, method=1):
         #sm = sp.linalg.eigh(M, eigvals_only=True, overwrite_a=True, check_finite=False)
         del M
 
-        return np.sqrt( sm )
+        return np.sqrt(sm)
 
 def _SVD_upd_diag_equal_sigmas( sigmas, m_vec , new_col):
     """
@@ -629,8 +625,8 @@ def _SVD_upd_diag_equal_sigmas( sigmas, m_vec , new_col):
                 m = np.sqrt( a**2 + b**2 )
                 alpha = a/m; beta = b/m
 
-                U_tmp[ 0, 0 ] = alpha; U_tmp[ 0, i ] = beta
-                U_tmp[ i, 0 ] = -beta; U_tmp[ i, i ] = alpha
+                U_tmp[0, 0] = alpha; U_tmp[ 0, i ] = beta
+                U_tmp[i, 0] = -beta; U_tmp[ i, i ] = alpha
 
                 if U_part is None:
                     U_part = U_tmp.copy()
@@ -644,9 +640,9 @@ def _SVD_upd_diag_equal_sigmas( sigmas, m_vec , new_col):
     else:
         permute_indices = []
 
-    unique_num = len( unique_inds_list )
-    equal_num = len( permute_indices )
-    assert (orig_sigma_len == unique_num + equal_num + (orig_sigma_len - num_nonzero) ), "Length of equal and/or unique indices is wrong"
+    unique_num = len(unique_inds_list)
+    equal_num = len(permute_indices)
+    assert (orig_sigma_len == unique_num + equal_num + (orig_sigma_len - num_nonzero)), "Length of equal and/or unique indices is wrong"
 
     extra_indices = permute_indices + zero_inds
 
@@ -677,7 +673,7 @@ def _SVD_upd_diag_equal_sigmas( sigmas, m_vec , new_col):
         else:
             U = P
 
-        z_col = np.dot( U, m_vec ) # replace z_col accordingly
+        z_col = np.dot(U, m_vec) # replace z_col accordingly
 
     else:
         unique_num = orig_sigma_len
@@ -757,7 +753,7 @@ def _arrays_merge(a1, a2, decreasing=True , func=None):
     return perm, srt
 
 
-def _SVD_upd_diag( sigmas, m_vec, new_col=True):
+def _SVD_upd_diag(sigmas, m_vec, new_col=True,method=2):
     """
     This is internal function which is called by update_SVD and SVD_update
     class. It returns the SVD of diagonal matrix augmented by one column.
@@ -778,6 +774,7 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
         new_col - says which task is task is solved. See comments to the
                   function. True if originally the problem of new column is
                   solved, False if new row is added.
+        method: int: which method is used to find roots of secular equation
     Outputs:
         U, sigmas, V - SVD of the diagonal matrix plus one column.
 
@@ -786,7 +783,7 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
     """
 
     orig_sigmas_length = sigmas.shape[0]
-    (equal_sigmas, uniq_sig_num, U_eq, m_vec_transformed) = _SVD_upd_diag_equal_sigmas( sigmas, m_vec, new_col )
+    (equal_sigmas, uniq_sig_num, U_eq, m_vec_transformed) = _SVD_upd_diag_equal_sigmas(sigmas, m_vec, new_col)
 
     if equal_sigmas: # there are equal sigmas
         old_sigmas = sigmas
@@ -802,8 +799,7 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
         new_sigmas = np.array( (np.sqrt( sigmas[0]**2 + m_vec[0]**2 ), ) )
         new_size = 1
     else:
-        method = 2
-        ret =  find_roots(sigmas, m_vec, method = method)
+        ret =  find_roots(sigmas, m_vec, method=method)
         new_sigmas = ret
 
         if (method == 3):
@@ -814,7 +810,7 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
                 # This branch handles the case when there are other zero sigmas.
                 new_sigmas[-1] = 0
 
-        del ret, method
+        del ret
 
         new_size = len(new_sigmas)
 
@@ -826,7 +822,7 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
         V = np.empty( (new_size+1, new_size) )
 
     for i in xrange(0, len(new_sigmas) ):
-        tmp1 = m_vec / ( (sigmas - new_sigmas[i]) * ( sigmas + new_sigmas[i] ) ) # unnormalized left sv
+        tmp1 = m_vec / ((sigmas - new_sigmas[i]) * (sigmas + new_sigmas[i])) # unnormalized left sv
         if np.any( np.isinf(tmp1) ):
 
             #tmp1[:] = 0
@@ -837,15 +833,17 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
                 # we can not determine the value to put instead of infinity. Hence,
                 # other property is used to do it. I. e. scalar product of tmp1 and m_vec must equal -1.
                 nonzero_inds  = np.nonzero( np.isinf(tmp1) )[0]
-                if len( nonzero_inds ) == 1:
+                if len(nonzero_inds) == 1:
                     tmp1[nonzero_inds] = 0
                     tmp1[nonzero_inds] = (-1 - np.dot( tmp1, m_vec)) / m_vec[nonzero_inds]
                 else:
-                    pass
-
-        if np.any( np.isnan(tmp1) ): # temporary check
-            pass
-
+                    #pass  # For debugging
+                    raise ValueError("Unhandeled case 1")
+    
+        if np.any(np.isnan(tmp1)): # temporary check
+            #pass # For debugging
+            raise ValueError("Unhandeled case 2")
+            
         nrm = sp.linalg.norm(tmp1, ord=2)
         U[:,i] = tmp1 / nrm
 
@@ -890,7 +888,7 @@ def _SVD_upd_diag( sigmas, m_vec, new_col=True):
 
 
 
-def update_SVD( U, S, Vh, a_col, a_col_col=True):
+def update_SVD(U, S, Vh, a_col, a_col_col=True):
     """
     This is the function which updates SVD decomposition by one column.
     In real situation SVD_updater class is more preferable to use, because
@@ -935,7 +933,7 @@ def update_SVD( U, S, Vh, a_col, a_col_col=True):
     # Old epsilon:
     #zero_epsilon = np.sqrt( np.finfo(np.float64).eps * U.shape[0]**2 * Vh.shape[1] * 10*2)
     # Test epsilon
-    zero_epsilon = np.finfo(np.float64).eps * np.sqrt( U.shape[0] ) * Vh.shape[1] * sp.linalg.norm( a_col, ord=2 ) *2 # epsilon to determine when rank not increases
+    zero_epsilon = np.finfo(np.float64).eps * np.sqrt(U.shape[0] ) * Vh.shape[1] * sp.linalg.norm(a_col, ord=2) *2 # epsilon to determine when rank not increases
 
     a_col_old_shape = a_col.shape
     a_col.shape = (a_col.shape[0],) if (len(a_col.shape) == 1) else ( max(a_col.shape), )
@@ -949,44 +947,44 @@ def update_SVD( U, S, Vh, a_col, a_col_col=True):
         mu = sp.linalg.norm(new_u, ord=2)
 
 
-        Vh = np.hstack( (Vh, np.array( (0.0,)*old_size, ndmin=2 ).T ) )
-        Vh = np.vstack( (Vh, np.array( (0.0,)*old_size + (1.0,), ndmin=2 ) ) )
+        Vh = np.hstack((Vh, np.array((0.0,)*old_size, ndmin=2).T ) )
+        Vh = np.vstack((Vh, np.array((0.0,)*old_size+(1.0,), ndmin=2)))
 
         if (np.abs(mu) < zero_epsilon): # new column is from the same subspace as the old column
                                     # rank is not increased.
-            U1, new_sigmas, V1 = _SVD_upd_diag( S, m_vec, new_col=False)
+            U1, new_sigmas, V1 = _SVD_upd_diag(S, m_vec, new_col=False)
 
             # This block adds zero to singular value and modify matrices
             # accordingly. It can be removed if needed ->
-            new_sigmas = np.concatenate( ( new_sigmas, (0.0,) ) )
-            U1 = np.hstack( (U1, np.zeros((U1.shape[0] ,1) ) ))
-            V1 = np.hstack( ( V1, np.zeros((V1.shape[0],1) ) )  )
+            new_sigmas = np.concatenate((new_sigmas, (0.0,)))
+            U1 = np.hstack((U1, np.zeros((U1.shape[0] ,1))))
+            V1 = np.hstack((V1, np.zeros((V1.shape[0],1))))
             # <-
         else:
-            U = np.hstack( (U, new_u[:,np.newaxis] / mu) )
+            U = np.hstack((U, new_u[:,np.newaxis] / mu))
 
-            S = np.concatenate( (S, (0.0,) ) )
-            m_vec = np.concatenate((m_vec, (mu,) ))
+            S = np.concatenate((S, (0.0,)))
+            m_vec = np.concatenate((m_vec, (mu,)))
 
-            U1, new_sigmas, V1 = _SVD_upd_diag( S, m_vec, new_col=True)
+            U1, new_sigmas, V1 = _SVD_upd_diag(S, m_vec, new_col=True)
 
         U = np.dot(U, U1)
         Vh = np.dot(V1.T,Vh) # V matrix. Need to return V.T though
 
         del U1,V1
     else: # new row
-        m_vec = np.dot( Vh, a_col )
+        m_vec = np.dot(Vh, a_col)
 
-        U = np.vstack( (U, np.array( (0.0,)*U_shape[1], ndmin=2 ) ) )
+        U = np.vstack((U, np.array((0.0,)*U_shape[1], ndmin=2)))
 
         if (sp.linalg.norm(m_vec, ord=2) < zero_epsilon): # zero row is added
             U = U.copy()
             new_sigmas = S.copy()
             Vh = Vh.copy()
         else:
-            U = np.hstack( (U, np.array( (0.0,)*U_shape[0] + (1.0,), ndmin=2 ).T ) )
+            U = np.hstack((U, np.array((0.0,)*U_shape[0] + (1.0,), ndmin=2 ).T))
 
-            V1, new_sigmas, U1 = _SVD_upd_diag( S, m_vec, new_col=False) # U1 and V1 are changed because m_vec is new row
+            V1, new_sigmas, U1 = _SVD_upd_diag(S, m_vec, new_col=False) # U1 and V1 are changed because m_vec is new row
 
             U = np.dot(U,U1)
             Vh = np.dot(V1.T, Vh)
@@ -994,7 +992,6 @@ def update_SVD( U, S, Vh, a_col, a_col_col=True):
             del U1,V1
 
     a_col.shape = a_col_old_shape
-
 
     return U, new_sigmas, Vh
 
@@ -1658,15 +1655,15 @@ def test_equal_sigmas():
 
     return True
 
-def test_update_diag( sigmas, m_vec, new_col=True,U=None,S=None,V=None):
+def test_update_diag(sigmas, m_vec, new_col=True,U=None,S=None,V=None):
     #dct = io.loadmat( 'Fri_file' )
     #sigmas = dct['sigmas']
     #m_vec = dct['m_vec']
 
     if new_col:
-        M = np.hstack( ( np.vstack( (np.diag(sigmas[0:-1]), np.zeros( (1,len(m_vec) - 1) ) ) ), m_vec[:, np.newaxis ]))
+        M = np.hstack((np.vstack((np.diag(sigmas[0:-1]), np.zeros((1,len(m_vec) - 1)))), m_vec[:, np.newaxis ]))
     else:
-        M = np.hstack( (np.diag( S ), m_vec[:, np.newaxis ]))
+        M = np.hstack((np.diag(S), m_vec[:, np.newaxis]))
 
     (Um,Sm,Vm) = sp.linalg.svd(M, full_matrices=False, compute_uv=True, overwrite_a=False, check_finite=False)
     Ar1 = np.dot( Um, np.dot(np.diag(Sm), Vm ) )
@@ -1675,7 +1672,7 @@ def test_update_diag( sigmas, m_vec, new_col=True,U=None,S=None,V=None):
     if not U is None:
         (U, S, V) = _SVD_upd_diag(sigmas, m_vec, new_col)
 
-    Ar2 = np.dot( U, np.dot(np.diag(S), V.T ) )
+    Ar2 = np.dot(U, np.dot(np.diag(S), V.T))
     Ar = Ar1 - Ar2
     diff2 = np.max( np.abs( M - Ar2) )/S[0]
 
@@ -1727,16 +1724,18 @@ if __name__ == '__main__':
 
 
 #    res = test_SVD_update_reorth(1000,10, 990, 0.05, 2000,'1000_10_no_reorth_1.mat') # (n_rows,start_n_col, n_max_cols, prob_same_subspace, reorth_step)
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_1.mat') # (n_rows,start_n_col, n_max_cols, prob_same_subspace, reorth_step)
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_2.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_3.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_4.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_5.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_6.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_7.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_8.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_9.mat')
-    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_10.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_1.mat') # (n_rows,start_n_col, n_max_cols, prob_same_subspace, reorth_step)
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_2.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_3.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_4.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_5.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_6.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_7.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_8.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_9.mat')
+#    res = test_SVD_update_reorth(1000, 1000, 1500, 0.05, 2000, '1000_1000_no_reorth_10.mat')
+    
+    
     #res = test_SVD_update_reorth(1000,10, 990, 0.05, 50) # (n_rows,start_n_col, n_max_cols, prob_same_subspace, reorth_step)
     #res = test_SVD_comp_complexity(10000,10, 13000, 500)
 
@@ -1749,3 +1748,29 @@ if __name__ == '__main__':
     #sigmas = np.array( [30000, 0.5, 0])
     #m_vec = np.array( [0.001, -100, 10000])
     #test_update_diag(sigmas,m_vec)
+    sigmas = np.array([4., 3., 2., 0])
+    m_vec = np.array([3.12, 5.7, -4.8, -2.2])
+    
+    # Test SVD ->
+    M = np.hstack((np.vstack((np.diag(sigmas[0:-1]), np.zeros((1,len(m_vec) - 1)))), m_vec[:, np.newaxis ]))
+    SM = sp.linalg.svd(M, full_matrices=False, compute_uv=False, overwrite_a=False, check_finite=False )
+    # Test SVD <-
+    
+    it_len = len(sigmas)
+    sgm = np.concatenate((sigmas[::-1], (sigmas[0] + it_len*np.sqrt(np.sum( np.power(m_vec,2))),)))
+    mvc = np.concatenate((m_vec[::-1], (0,)))
+    roots = []
+
+    it_start = 1
+    prepend_zero = False
+
+    for i in xrange(it_start, it_len+1): # find all singular except the last
+        res = sp.linalg.lapack.dlasd4(i, sgm, mvc)
+        roots.append(res[1])
+
+        if  (res[3] > 0) or np.any(np.isnan(roots)):
+            raise ValueError("LAPACK root finding dlasd4 failed to fine the last singular value")
+    
+    pass
+    
+    
